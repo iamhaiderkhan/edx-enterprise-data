@@ -76,7 +76,7 @@ class EnterpriseEnrollmentsViewSet(EnterpriseViewSet, viewsets.ModelViewSet):
         Returns all learner enrollment records for a given enterprise.
         """
         enterprise_id = self.kwargs['enterprise_id']
-
+        search_email = self.request.GET.get('search')
         enterprise = EnterpriseUser.objects.filter(enterprise_id=enterprise_id)
         if enterprise:
             LOGGER.warning(
@@ -84,7 +84,10 @@ class EnterpriseEnrollmentsViewSet(EnterpriseViewSet, viewsets.ModelViewSet):
                 enterprise_id, self.request.get_full_path(), self.request.user.username, enterprise_id
             )
 
-        enrollments = EnterpriseEnrollment.objects.filter(enterprise_id=enterprise_id)
+        if search_email:
+            enrollments = EnterpriseEnrollment.objects.filter(user_email=search_email)
+        else:
+            enrollments = EnterpriseEnrollment.objects.filter(enterprise_id=enterprise_id)
 
         enrollments = self.apply_filters(enrollments)
         return enrollments
