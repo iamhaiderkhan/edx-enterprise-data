@@ -104,4 +104,3 @@ def get_dummy_enterprise_api_data(**kwargs):
         'replace_sensitive_sso_username': False
     }
     return enterprise_api_dummy_data
-

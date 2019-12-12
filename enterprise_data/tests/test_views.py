@@ -22,7 +22,6 @@ from enterprise_data.tests.test_utils import (
     EnterpriseUserFactory,
     UserFactory,
     get_dummy_enterprise_api_data,
-
 )
 from enterprise_data_roles.constants import (
     ALL_ACCESS_CONTEXT,
