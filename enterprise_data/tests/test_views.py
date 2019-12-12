@@ -22,7 +22,7 @@ from enterprise_data.tests.test_utils import (
     EnterpriseUserFactory,
     UserFactory,
     get_dummy_enterprise_api_data,
-    get_dummy_expected_enrollments_data
+
 )
 from enterprise_data_roles.constants import (
     ALL_ACCESS_CONTEXT,
@@ -31,7 +31,7 @@ from enterprise_data_roles.constants import (
     SYSTEM_ENTERPRISE_OPERATOR_ROLE,
 )
 from enterprise_data_roles.models import EnterpriseDataFeatureRole, EnterpriseDataRoleAssignment
-
+from enterprise_data.api.v0 import serializers
 
 @ddt.ddt
 @mark.django_db
@@ -77,7 +77,91 @@ class TestEnterpriseEnrollmentsViewSet(JWTTestMixin, APITransactionTestCase):
         }
         url = reverse('v0:enterprise-enrollments-list',
                       kwargs={'enterprise_id': enterprise_id})
-        expected_result = get_dummy_expected_enrollments_data(**{enterprise_id: self.enterprise_id})
+        expected_result = {
+            'count': 2,
+            'num_pages': 1,
+            'current_page': 1,
+            'results': [{
+                'enrollment_created_timestamp': '2014-06-27T16:02:38Z',
+                'unenrollment_timestamp': '2014-06-29T16:02:38Z',
+                'user_current_enrollment_mode': 'verified',
+                'last_activity_date': '2017-06-23',
+                'progress_status': 'Passed',
+                'course_id': 'edX/Open_DemoX/edx_demo_course',
+                'id': 2,
+                'course_min_effort': 2,
+                'course_start': '2016-09-01T00:00:00Z',
+                'enterprise_user': 111,
+                'user_country_code': 'US',
+                'course_title': 'All about acceptance testing!',
+                'course_duration_weeks': '8',
+                'course_pacing_type': 'instructor_paced',
+                'user_username': 'test_user',
+                'enterprise_sso_uid': 'harry',
+                'enterprise_site_id': None,
+                'enterprise_id': self.enterprise_id,
+                'course_end': '2016-12-01T00:00:00Z',
+                'lms_user_id': 11,
+                'enterprise_name': 'Enterprise 1',
+                'letter_grade': 'Pass',
+                'user_account_creation_timestamp': '2015-02-12T23:14:35Z',
+                'passed_timestamp': '2017-05-09T16:27:34.690065Z',
+                'course_max_effort': 4,
+                'consent_granted': True,
+                'user_email': 'test@example.com',
+                'course_key': 'edX/Open_DemoX',
+                'coupon_name': 'Enterprise Entitlement Coupon',
+                'coupon_code': 'PIPNJSUK33P7PTZH',
+                'offer': 'Percentage, 100 (#1234)',
+                'current_grade': 0.80,
+                'course_price': '200.00',
+                'discount_price': '120.00',
+                'course_api_url': ('/enterprise/v1/enterprise-catalogs/ee5e6b3a-069a-4947-bb8d-d2dbc323396c'
+                                   '/courses/edX/Open_DemoX/edx_demo_course'),
+                'unenrollment_end_within_date': True,
+            }, {
+                'enrollment_created_timestamp': '2014-06-27T16:02:38Z',
+                'unenrollment_timestamp': '2016-09-05T16:02:38Z',
+                'user_current_enrollment_mode': 'verified',
+                'last_activity_date': '2017-06-23',
+                'progress_status': 'Failed',
+                'course_id': 'edX/Open_DemoX/edx_demo_course',
+                'id': 4,
+                'course_min_effort': 2,
+                'course_start': '2016-09-01T00:00:00Z',
+                'enterprise_user': 333,
+                'user_country_code': 'US',
+                'course_title': 'All about acceptance testing!',
+                'course_duration_weeks': '8',
+                'course_pacing_type': 'instructor_paced',
+                'user_username': 'test_user',
+                'enterprise_sso_uid': 'harry',
+                'enterprise_site_id': None,
+                'enterprise_id': self.enterprise_id,
+                'course_end': '2016-12-01T00:00:00Z',
+                'lms_user_id': 11,
+                'enterprise_name': 'Enterprise 1',
+                'letter_grade': None,
+                'user_account_creation_timestamp': '2015-02-12T23:14:35Z',
+                'passed_timestamp': None,
+                'course_max_effort': 4,
+                'consent_granted': True,
+                'user_email': 'test@example.com',
+                'course_key': 'edX/Open_DemoX',
+                'coupon_name': 'Enterprise Entitlement Coupon',
+                'coupon_code': 'PIPNJSUK33P7PTZH',
+                'offer': 'Percentage, 100 (#1234)',
+                'current_grade': 0.80,
+                'course_price': '200.00',
+                'discount_price': '120.00',
+                'course_api_url': ('/enterprise/v1/enterprise-catalogs/ee5e6b3a-069a-4947-bb8d-d2dbc323396c'
+                                   '/courses/edX/Open_DemoX/edx_demo_course'),
+                'unenrollment_end_within_date': True,
+            }],
+            'next': None,
+            'start': 0,
+            'previous': None
+        }
 
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
@@ -545,21 +629,70 @@ class TestEnterpriseEnrollmentsViewSet(JWTTestMixin, APITransactionTestCase):
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_get_queryset_returns_enrollments_with_search_email(self):
-        enterprise_id = self.enterprise_id
-        self.mocked_get_enterprise_customer.return_value = {
-            'uuid': enterprise_id
-        }
-        url = u"{url}?search={search_email}".format(
-            url=reverse('v0:enterprise-enrollments-list', kwargs={'enterprise_id': enterprise_id}),
-            search_email='test@example.com'
+    def test_get_queryset_returns_expected_enrollments_by_search(self):
+
+        enterprise_user = EnterpriseUserFactory()
+        enrollments = EnterpriseEnrollmentFactory(
+            enterprise_user=enterprise_user,
+            enterprise_id=enterprise_user.enterprise_id,
+            user_email='test23@edx.org',
+            enrollment_created_timestamp="2018-01-01T00:00:00Z"
         )
-        expected_result =  get_dummy_expected_enrollments_data(**{enterprise_id: self.enterprise_id})
+
+        enrollments_serialize = serializers.EnterpriseEnrollmentSerializer(enrollments)
+
+        expected_result = {
+            'count': 1,
+            'num_pages': 1,
+            'current_page': 1,
+            'results': [enrollments_serialize.data],
+            'next': None,
+            'start': 0,
+            'previous': None
+        }
+
+        url = u"{url}?search={search_email}".format(
+            url=reverse('v0:enterprise-enrollments-list', kwargs={'enterprise_id': enterprise_user.enterprise_id}),
+            search_email='test23@edx.org'
+        )
 
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         result = response.json()
         assert result == expected_result
+
+    def test_get_queryset_returns_invalid_expected_enrollments_by_search(self):
+
+        enterprise_user = EnterpriseUserFactory()
+        for i in range(2):
+            enrollments = EnterpriseEnrollmentFactory(
+                enterprise_user=enterprise_user,
+                enterprise_id=enterprise_user.enterprise_id,
+                user_email='test2{}@edx.org'.format(i),
+                enrollment_created_timestamp="2018-01-01T00:00:00Z"
+            )
+
+        enrollments_serialize = serializers.EnterpriseEnrollmentSerializer(enrollments)
+
+        expected_result = {
+            'count': 1,
+            'num_pages': 1,
+            'current_page': 1,
+            'results': [enrollments_serialize.data],
+            'next': None,
+            'start': 0,
+            'previous': None
+        }
+
+        url = u"{url}?search={search_email}".format(
+            url=reverse('v0:enterprise-enrollments-list', kwargs={'enterprise_id': enterprise_user.enterprise_id}),
+            search_email='test21@edx.org'
+        )
+
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        result = response.json()
+        assert result != expected_result
 
 
 @ddt.ddt
