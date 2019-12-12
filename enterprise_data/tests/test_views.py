@@ -629,70 +629,58 @@ class TestEnterpriseEnrollmentsViewSet(JWTTestMixin, APITransactionTestCase):
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_get_queryset_returns_expected_enrollments_by_search(self):
-
-        enterprise_user = EnterpriseUserFactory()
-        enrollments = EnterpriseEnrollmentFactory(
-            enterprise_user=enterprise_user,
-            enterprise_id=enterprise_user.enterprise_id,
-            user_email='test23@edx.org',
-            enrollment_created_timestamp="2018-01-01T00:00:00Z"
-        )
-
-        enrollments_serialize = serializers.EnterpriseEnrollmentSerializer(enrollments)
-
-        expected_result = {
-            'count': 1,
+    def _get_expected_data(self, serialize_data):
+        return {
+            'count': len(serialize_data),
             'num_pages': 1,
             'current_page': 1,
-            'results': [enrollments_serialize.data],
+            'results': serialize_data,
             'next': None,
             'start': 0,
             'previous': None
         }
 
+    def _assert_response(self, expected_result, search_email=None, enterprise_id=None):
         url = u"{url}?search={search_email}".format(
-            url=reverse('v0:enterprise-enrollments-list', kwargs={'enterprise_id': enterprise_user.enterprise_id}),
-            search_email='test23@edx.org'
+            url=reverse('v0:enterprise-enrollments-list', kwargs={'enterprise_id': enterprise_id}),
+            search_email=search_email
         )
-
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         result = response.json()
         assert result == expected_result
 
-    def test_get_queryset_returns_invalid_expected_enrollments_by_search(self):
+    def test_get_queryset_returns_expected_enrollments_by_search(self):
 
         enterprise_user = EnterpriseUserFactory()
-        for i in range(2):
-            enrollments = EnterpriseEnrollmentFactory(
-                enterprise_user=enterprise_user,
-                enterprise_id=enterprise_user.enterprise_id,
-                user_email='test2{}@edx.org'.format(i),
-                enrollment_created_timestamp="2018-01-01T00:00:00Z"
-            )
 
-        enrollments_serialize = serializers.EnterpriseEnrollmentSerializer(enrollments)
-
-        expected_result = {
-            'count': 1,
-            'num_pages': 1,
-            'current_page': 1,
-            'results': [enrollments_serialize.data],
-            'next': None,
-            'start': 0,
-            'previous': None
-        }
-
-        url = u"{url}?search={search_email}".format(
-            url=reverse('v0:enterprise-enrollments-list', kwargs={'enterprise_id': enterprise_user.enterprise_id}),
-            search_email='test21@edx.org'
+        enrollment1 = EnterpriseEnrollmentFactory(
+            enterprise_user=enterprise_user,
+            enterprise_id=enterprise_user.enterprise_id,
+            user_email='test21@edx.org',
+            enrollment_created_timestamp="2018-01-01T00:00:00Z"
+        )
+        enrollment2 = EnterpriseEnrollmentFactory(
+            enterprise_user=enterprise_user,
+            enterprise_id=enterprise_user.enterprise_id,
+            user_email='test22@edx.org',
+            enrollment_created_timestamp="2018-01-01T00:00:00Z"
         )
 
-        response = self.client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        result = response.json()
-        assert result != expected_result
+        self._assert_response(
+            self._get_expected_data([serializers.EnterpriseEnrollmentSerializer(enrollment1).data]), 'test21@edx.org',
+            **{'enterprise_id': enterprise_user.enterprise_id}
+        )
+
+        self._assert_response(
+            self._get_expected_data([serializers.EnterpriseEnrollmentSerializer(enrollment2).data]), 'test22@edx.org',
+            **{'enterprise_id': enterprise_user.enterprise_id}
+        )
+
+        self._assert_response(
+            self._get_expected_data([]), 'dummy@edx.org',
+            **{'enterprise_id': enterprise_user.enterprise_id}
+        )
 
 
 @ddt.ddt
